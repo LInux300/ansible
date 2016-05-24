@@ -1,0 +1,28 @@
+---
+- hosts: debian
+  become: sudo
+  user: root
+  tasks:
+    - name: Ensure Zsh is installed
+      apt: name=zsh state=installed
+
+    - name: Ensure git is installed
+      apt: name=git state=installed
+
+    - name: Create my user account
+      user: name=kuntu shell=/usr/bin/zsh
+
+    - name: Add my public key to the server
+      authorized_key: user=kuntu
+                      key="{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+    - name: Install oh-my-zsh
+      git: repo=https://github.com/robbyrussell/oh-my-zsh.git
+           dest=~/.oh-my-zsh
+      remote_user: kuntu
+      sudo: false
+
+    - name: Copy .zshrc template
+      command: cp ~/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc
+      remote_user: kuntu
+      sudo: false
