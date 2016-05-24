@@ -1,5 +1,7 @@
 ---
 - hosts: debian
+  # http://ryaneschinger.com/blog/ansible-quick-start/
+  # ansible-playbook -s playbooks/user-public-key.yml
   become: sudo
   user: root
   tasks:

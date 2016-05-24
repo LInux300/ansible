@@ -1,0 +1,34 @@
+---
+# - name: Add Nginx Repository
+#   apt_repository: repo='ppa:nginx/stable' state=present
+
+- name: Install Nginx
+  apt: pkg=nginx state=latest update_cache=true
+  notify:
+   - Start Nginx
+
+# files module: from dir files/h5bp
+- name: Add H5BP Config
+  copy: src=h5bp dest=/etc/nginx owner=root group=root
+
+# config ng
+- name: Disable Default Config
+  file: dest=/etc/nginx/sites-enabled/default state=absent
+  notify:
+    - Reload Nginx
+
+# template are going to use template modul
+- name: Add SFH Site Config
+  template: src=tibetanmedicine.eu.j2
+            dest=/etc/nginx/sites-available/{{ domain }}
+            owner=root group=root
+
+# enable
+- name: Enable SFH Site Config
+  file: src=/etc/nginx/sites-available/{{ domain }}
+        dest=/etc/nginx/sites-enabled/{{ domain }} state=link
+  notify:
+    - Reload Nginx
+
+- name: Start Nginx
+  service: name=nginx state=started

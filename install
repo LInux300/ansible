@@ -97,3 +97,143 @@ vim nginx.yml
 ansible-playbook --private-key=~/.ssh/id_uk01 nginx.yml
 ansible-playbook -s nginx.yml
 ansible-playbook -s -k -u vagrant nginx.yml
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+# Ansible roles
+#------------------------------------------------------------------------------
+mkdir -p roles/nginx
+cd roles/nginx
+mkdir files handlers meta templates tasks vars
+# add meta data
+#------------------------------------------------------------------------------
+vim meta/main.yml
+"""
+---
+ dependencies: []
+"""
+
+# add to files
+#------------------------------------------------------------------------------
+# config for nginx
+https://github.com/h5bp/server-configs-nginx
+# copy the link to h5bp
+cd files
+wget https://github.com/h5bp/server-configs-nginx/archive/master.zip
+sudo apt-get install unzip
+unzip master.zip
+rm master.zip
+mv server-configs-nginx-master/h5bp/ .
+rm -rf server-configs-nginx-master/
+cd ..
+
+# add variables
+#------------------------------------------------------------------------------
+vim vars/main.yml
+"""
+---
+  domain: 11.22.23.55
+"""
+
+
+# handlers
+#------------------------------------------------------------------------------
+vim handlers/main.yml
+"""
+---
+ - name: Start Nginx
+   service: name=nginx state=started
+
+ - name: Reload Nginx
+   service: name=nginx state=reloaded
+"""
+
+
+# templates
+#------------------------------------------------------------------------------
+vim templates/tibetanmedicine.eu
+"""
+server {
+    listen 80;
+    server_name *.{{ domain }};
+    return 301 http://{{ domain }};
+}
+
+server {
+    listen 80 default_server;
+
+    root /var/www/{{ domain }}/public;
+    index index.html index.htm;
+
+    access_log /var/log/nginx/{{ domain }}.log;
+    error_log /var/log/nginx/{{ domain }}-error.log error;
+
+    server_name {{ domain }};
+
+    charset utf-8;
+
+    include h5bp/basic.conf;
+
+    location /favicon.ico { log_not_found off; access_log off;}
+    location /robots.txt  { log_not_found off; access_log off;}
+
+    location / {
+        try_files $uri $uri =404;
+    }
+}
+"""
+
+# task
+#------------------------------------------------------------------------------
+vim tasks/man.yml
+"""
+---
+- name: Add Nginx Repository
+  apt_repository: repo='ppa:nginx/stable' state=present
+
+- name: Install Nginx
+  apt: pgk=nginx state=latest update_cache=true
+  notify:
+   - Start Nginx
+
+# files module: from dir files/h5bp
+- name: Add H5BP Config
+  copy: src=h5bp dest=/etc/nginx owner=root group=root
+
+# config ng
+- name: Disable Default Config
+  file: dest=/etc/nginx/sites-enabled/default state=absent
+  notify:
+    - Reload Nginx
+
+# template are going to use template modul
+- name: Add SFH Site Config
+  template: src=tibetanmedicine.eu.j2 dest=/etc/nginx/sites-available/{{ domain }} owner=root group=root
+
+# enable
+- name: Enable SFH Site Config
+  file: src=/etc/nginx/sites-available/{{ domain }} dest=/etc/nginx/sites-enabled/{{ domain }} state=link
+  notify:
+    - Reload Nginx
+
+"""
+
+
+cd ../../
+~/code/ansible$ vim nginx.yml
+"""
+---
+ - hosts: debian
+   become: sudo
+   user: root
+   roles:
+    - nginx
+
+"""
+
+ansible-playbook --private-key=~/.ssh/id_uk01 nginx.yml
+ansible-playbook --syntax-check nginx.yml
